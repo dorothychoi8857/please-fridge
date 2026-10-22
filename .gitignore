@@ -1,6 +1,7 @@
 # Credentials must never be committed, even for a browser-only app.
 .env
 .env.*
+.env*
 *.env
 *.key
 *.pem
@@ -17,3 +18,4 @@ Thumbs.db
 .idea/
 .vscode/
 __pycache__/
+.vercel/

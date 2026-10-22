@@ -1,0 +1,22 @@
+# Never upload credentials, personal inventory, or local project metadata.
+.git/
+.vercel/
+node_modules/
+.env
+.env.*
+.env*
+*.env
+*.key
+*.pem
+client_secret*.json
+credentials*.json
+냉장고-백업-*.json
+backups/
+*.log
+*.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+__pycache__/
+scripts/

@@ -250,17 +250,22 @@ function confirmModal(title,description,action,id='',label='확인') {
 }
 function navigate(next) { page=next;location.hash=next;render();window.scrollTo({top:0,behavior:'smooth'}); }
 
-function loadIntegrationStatus() {
+async function loadIntegrationStatus() {
   const destination=app.querySelector('.settings-grid>div');if(!destination)return;
+  await YouTube.checkServer();if(!destination.isConnected)return;
   const panel=document.createElement('section');panel.className='settings-card integration-settings';
   const config=YouTube.getStatus();
   panel.innerHTML=`<div class="settings-icon">${icon('book')}</div><h2>YouTube 영상 연결</h2><p>HTML · CSS · JavaScript만으로 동작해요. 영상 3개 자동 검색은 개인 API 키가 필요하고, 유튜브 검색 페이지는 키 없이 열 수 있어요.</p><div class="integration-status"><div><span>유튜브 자동 검색</span>${badge(config.configured?config.verified?'연결 확인':'키 설정됨':'키 없이 사용 중',config.configured?'green':'orange')}</div><div><span>사진 분석</span>${badge('보류','orange')}</div></div><form id="youtube-key-form"><label class="field-label" for="youtube-api-key">개인 YouTube API 키<input id="youtube-api-key" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${config.configured?'새 키를 입력하면 교체해요':'Google에서 발급한 API 키'}" ${config.configured?'':'required'}></label><label class="check-label"><input name="consent" type="checkbox" required> 브라우저 전용 연결의 키 노출 가능성을 이해했고 개인용 환경에서 사용할게요.</label><div class="notice warning">브라우저에서는 키를 숨길 수 없어요. 개발자 도구·확장 프로그램 등에서 확인될 수 있습니다. 공개·공용 PC에서는 입력하지 마세요. 키는 이 탭의 세션 저장소에만 두며 재고 백업에 포함하지 않아요. 브라우저 세션 복원 시 남을 수 있으니 사용 후 연결을 해제하세요.</div><div class="settings-actions"><button class="btn primary small-btn" type="submit">${config.configured?'연결 확인':'키 저장 · 연결 확인'}</button>${config.configured?btn('연결 해제','clear-youtube','btn secondary small-btn'):''}${btn('설정 도움말','api-help','text-btn')}</div><div class="form-error" id="youtube-key-message" role="status"></div></form>`;
+  if(config.serverConnected)panel.innerHTML=`<div class="settings-icon">${icon('book')}</div><h2>YouTube 자동 연결</h2><p>이 사이트에서는 개인 API 키를 입력할 필요가 없어요. 메뉴를 열면 관련 영상을 자동으로 찾아드려요.</p><div class="integration-status"><div><span>유튜브 영상 검색</span>${badge(config.verified?'연결 확인':'서버 연결 준비됨','green')}</div><div><span>사진 분석</span>${badge('보류','orange')}</div></div><div class="notice">API 키는 Vercel 서버 환경변수에만 보관하며 HTML·브라우저 응답·재고 백업에 포함하지 않습니다. 반복 검색은 캐시하고 무료 할당량을 초과하면 요청을 제한해요.</div><div class="settings-actions">${btn('영상 연결 확인','verify-server-youtube','btn secondary small-btn')}${btn('연결 안내','api-help','text-btn')}</div>`;
   destination.prepend(panel);
-  panel.querySelector('#youtube-key-form .settings-actions').insertAdjacentHTML('beforebegin',`<div class="local-key-import"><label class="btn secondary small-btn file-button">기존 설정 파일에서 키 읽기<input id="youtube-key-file" class="sr-only" type="file" accept=".env,.txt,text/plain"></label><p class="fine-print">이전 버전의 .env를 직접 선택하면 YouTube 키만 비밀번호 입력란에 채워요. 파일은 업로드하지 않고, 아래 연결 버튼을 누르기 전에는 저장하지 않습니다.</p></div>`);
+  panel.querySelector('#youtube-key-form .settings-actions')?.insertAdjacentHTML('beforebegin',`<div class="local-key-import"><label class="btn secondary small-btn file-button">기존 설정 파일에서 키 읽기<input id="youtube-key-file" class="sr-only" type="file" accept=".env,.txt,text/plain"></label><p class="fine-print">이전 버전의 .env를 직접 선택하면 YouTube 키만 비밀번호 입력란에 채워요. 파일은 업로드하지 않고, 아래 연결 버튼을 누르기 전에는 저장하지 않습니다.</p></div>`);
   const dataCard=app.querySelector('.data-card');
   dataCard.insertAdjacentHTML('beforeend',`<div class="backup-controls"><label class="btn secondary small-btn file-button">백업 파일 불러오기<input id="backup-file" type="file" accept="application/json,.json" class="sr-only"></label><p class="fine-print">이전 서버 버전의 JSON 백업도 불러올 수 있어요. 복원 전 내용과 교체 여부를 확인합니다. API 키는 가져오지 않아요.</p></div>`);
 }
 function apiHelpModal() {
+  if(YouTube.getStatus().serverConnected){
+    openModal(`<div class="modal-heading"><span class="eyebrow">CONNECTED, SAFELY</span><h2 id="modal-title">유튜브가 자동으로 연결돼 있어요</h2><p>개인 API 키를 입력하지 않아도 메뉴별 영상을 볼 수 있어요.</p></div><div class="notice"><strong>키는 서버에만 보관해요.</strong><p>Vercel 환경변수에서 Google YouTube API로 연결하며 브라우저에는 영상 정보만 전달합니다. 공개 소스·브라우저 저장소·JSON 백업에는 실제 키가 없습니다.</p></div><div class="notice">관련 검색 후보 중 제목이 메뉴와 맞는 영상을 조회수순으로 최대 3개 표시합니다. 전체 YouTube 순위나 영상 속 재료·조리법의 일치를 보장하지 않아요. 무료 할당량 초과 시에는 직접 검색 버튼을 이용해 주세요. 사진 분석은 보류 상태입니다.</div><div class="modal-actions">${btn('확인했어요','close','btn primary')}</div>`);return;
+  }
   openModal(`<div class="modal-heading"><span class="eyebrow">NO SERVER, JUST YOUR BROWSER</span><h2 id="modal-title">브라우저 전용 유튜브 연결</h2><p>이 버전은 서버 없이 파일을 직접 열어 사용합니다.<br>재고·추천·장보기는 API 키 없이도 동작해요.</p></div>
     <ol class="api-help-steps">
       <li><strong>키 없이 사용하기</strong><p>메뉴 상세의 ‘YouTube에서 직접 검색’을 누르면 해당 요리 검색 페이지가 열려요. 앱 안에 인기 영상 3개를 자동 표시하는 기능과는 다릅니다.</p></li>
@@ -272,13 +277,18 @@ function apiHelpModal() {
     <div class="modal-actions">${btn('닫기','close','btn secondary')}${btn('설정에서 입력하기','youtube-settings','btn primary')}</div>`);
 }
 
-document.addEventListener('click',ev=>{
+document.addEventListener('click',async ev=>{
   const target=ev.target.closest('[data-action]'); if(!target)return;
   const {action,id,value,name}=target.dataset;
   if(action==='close') return closeModal();
   if(action==='nav')return navigate(target.dataset.page);
   if(action==='add')return addModal();
   if(action==='api-help')return apiHelpModal();
+  if(action==='verify-server-youtube'){
+    target.disabled=true;
+    try{await YouTube.youtubeVideos('tofu');toast('유튜브 자동 연결을 확인했어요. 개인 키는 필요하지 않아요.');if(page==='settings')render();}catch(error){toast(error.message);}finally{if(target.isConnected)target.disabled=false;}
+    return;
+  }
   if(action==='youtube-settings'){closeModal();return navigate('settings');}
   if(action==='clear-youtube'){YouTube.clearKey();render();toast('이 탭의 YouTube 키와 영상 캐시를 지웠어요.');return;}
   if(action==='confirm-import'){

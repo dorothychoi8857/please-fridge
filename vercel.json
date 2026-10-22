@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": ".",
+  "functions": {
+    "api/youtube.js": { "maxDuration": 60 },
+    "api/status.js": { "maxDuration": 10 }
+  }
+}

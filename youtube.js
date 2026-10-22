@@ -2,10 +2,28 @@
 'use strict';
 const KEY='fridge-youtube-session-v1';
 const QUERIES={tofu:'두부 계란 볶음 레시피',chicken:'간장 닭고기 덮밥 레시피',pancake:'애호박전 레시피',rice:'야채 계란 볶음밥 레시피',spinach:'시금치 계란 볶음 레시피',soup:'두부 된장국 레시피'};
-let sessionKey='',generation=0,verified=false,sessionAvailable=true;
+let sessionKey='',generation=0,verified=false,sessionAvailable=true,serverAvailable=null,serverPending=null;
 try { sessionKey=sessionStorage.getItem(KEY)||''; } catch { sessionAvailable=false; }
 const cache=new Map(),pending=new Map();
-const getStatus=()=>({configured:Boolean(sessionKey),verified,sessionAvailable});
+const getStatus=()=>({configured:serverAvailable===true||Boolean(sessionKey),serverConnected:serverAvailable===true,sessionConfigured:Boolean(sessionKey),verified,sessionAvailable});
+async function checkServer(force=false) {
+  // Local files and GitHub Pages stay fully static: no backend calls or secret-file reads.
+  if(!['http:','https:'].includes(location.protocol)||location.hostname.endsWith('.github.io'))return false;
+  if(!force&&serverAvailable!==null)return serverAvailable;
+  if(serverPending)return serverPending;
+  serverPending=(async()=>{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000);
+    try {
+      const response=await fetch(new URL('./api/status',document.baseURI),{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
+      if(!response.ok){serverAvailable=false;return false;}
+      const data=await response.json();
+      serverAvailable=data.runtime==='vercel-javascript'&&data.youtubeConfigured===true;
+      return serverAvailable;
+    } catch {serverAvailable=false;return false;}
+    finally {clearTimeout(timer);}
+  })();
+  try{return await serverPending;}finally{serverPending=null;}
+}
 function setKey(value) {
   const key=String(value||'').trim();
   if(!/^AIza[A-Za-z0-9_-]{35}$/.test(key))throw new Error('Google에서 발급한 YouTube API 키 형식을 확인해 주세요.');
@@ -57,13 +75,26 @@ async function googleJSON(resource,params,key,signal) {
 }
 async function youtubeVideos(recipeID) {
   if(!Object.hasOwn(QUERIES,recipeID))throw new Error('알 수 없는 메뉴예요.');
-  if(!sessionKey)throw new Error('영상 3개를 자동으로 가져오려면 설정에서 YouTube API 키를 입력해 주세요. 키 없이도 검색 페이지는 열 수 있어요.');
+  const useServer=await checkServer(!sessionKey&&serverAvailable===false);
+  if(!useServer&&!sessionKey)throw new Error('영상 3개를 자동으로 가져오려면 설정에서 YouTube API 키를 입력해 주세요. 키 없이도 검색 페이지는 열 수 있어요.');
   const stored=cache.get(recipeID);
   if(stored&&stored.until>Date.now())return {...stored.data,cached:true};
   if(pending.has(recipeID))return pending.get(recipeID);
   const version=generation,key=sessionKey,controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),55000);
   const task=(async()=>{
+    if(useServer){
+      let response,data;
+      try {
+        const url=new URL('./api/youtube',document.baseURI);url.searchParams.set('recipe',recipeID);
+        response=await fetch(url,{headers:{Accept:'application/json'},signal:controller.signal});
+        data=await response.json();
+      }catch{throw new Error('유튜브 자동 연결이 잠시 지연되고 있어요. 다시 시도하거나 직접 검색 버튼을 이용해 주세요.');}
+      if(!response.ok)throw new Error(typeof data.error==='string'?data.error:'영상 검색에 실패했어요. 잠시 후 다시 시도하세요.');
+      if(!Array.isArray(data.videos))throw new Error('영상 응답을 확인하지 못했어요. 다시 시도해 주세요.');
+      const result={videos:data.videos.filter(v=>v&&/^[A-Za-z0-9_-]{11}$/.test(v.id)).slice(0,3).map(v=>({...v,url:'https://www.youtube.com/watch?v='+v.id})),query:QUERIES[recipeID],fetchedAt:data.fetchedAt||new Date().toISOString(),cached:Boolean(data.cached)};
+      verified=true;cache.set(recipeID,{until:Date.now()+6*3600000,data:result});return result;
+    }
     const found=new Map();
     for(const order of ['viewCount','relevance']){
       const search=await googleJSON('search',{part:'snippet',type:'video',q:QUERIES[recipeID],order,maxResults:50,regionCode:'KR',relevanceLanguage:'ko',safeSearch:'strict'},key,controller.signal);
@@ -93,7 +124,8 @@ async function populateVideos(container,recipeID,{e,icon,btn}) {
   const fallback=`<a class="btn secondary youtube-search-link" href="${searchURL(recipeID)}" target="_blank" rel="noopener noreferrer">YouTube에서 직접 검색 ↗</a>`;
   container.innerHTML=`<div class="video-heading"><div><span class="eyebrow">WATCH & COOK</span><h3><span class="youtube-mark">▶</span> 영상으로 따라 만들어요</h3></div><span class="soft-label">조회수 높은 영상 최대 3개</span></div><div class="video-results" role="status">${icon('clock')} ${sessionKey?'YouTube에서 메뉴에 맞는 영상을 찾고 있어요…':'키 없이도 유튜브 검색 페이지를 열 수 있어요.'}</div>`;
   const results=container.querySelector('.video-results');
-  if(!sessionKey){
+  const autoConnected=await checkServer();if(!container.isConnected)return;
+  if(!autoConnected&&!sessionKey){
     results.innerHTML=`<div class="notice"><strong>브라우저 전용 버전이에요.</strong><p>인기 영상 3개를 자동으로 표시하려면 설정에서 개인 YouTube API 키를 연결하세요. 검색 버튼은 API 키 없이 사용할 수 있어요.</p><div class="video-error-actions">${btn('YouTube 연결 설정','api-help','text-btn')}</div></div>${fallback}`;
     return;
   }
@@ -108,5 +140,5 @@ async function populateVideos(container,recipeID,{e,icon,btn}) {
     results.innerHTML=`<div class="notice warning"><strong>${e(error.message)}</strong><div class="video-error-actions">${btn('다시 불러오기','retry-videos','text-btn',`data-id="${e(recipeID)}"`)}${btn('연결 설정','api-help','text-btn')}</div></div>${fallback}`;
   }
 }
-window.FridgeYouTube=Object.freeze({getStatus,setKey,clearKey,searchURL,matchesMenu,youtubeVideos,populateVideos});
+window.FridgeYouTube=Object.freeze({getStatus,checkServer,setKey,clearKey,searchURL,matchesMenu,youtubeVideos,populateVideos});
 })();
