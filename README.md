@@ -2,7 +2,9 @@
 
 우리 집 냉장·냉동 재료를 기록하고, 먼저 소비할 재료로 오늘의 한 끼를 추천하는 **HTML · CSS · JavaScript 웹 앱**입니다.
 
-**[앱 열기](https://dorothychoi8857.github.io/please-fridge/)**
+**[앱 열기 · Vercel](https://please-fridge.vercel.app/)** — 개인 키 입력 없이 유튜브 자동 연결
+
+[GitHub Pages 정적 버전](https://dorothychoi8857.github.io/please-fridge/)도 유지합니다. 정적 버전은 개인 키 또는 유튜브 검색 링크를 사용합니다.
 
 ## 주요 기능
 
@@ -68,5 +70,11 @@ Vercel 배포에서는 서버 환경변수 `YOUTUBE_API_KEY`를 사용합니다.
 - [자세한 사용 방법](사용방법.md)
 - [이미지·보관 자료 출처](assets/CREDITS.md)
 - [앱 내 출처 페이지](credits.html)
+
+## 배포
+
+Vercel 프로젝트는 GitHub 저장소의 `main` 브랜치와 연결되어 있습니다. 푸시하면 운영 사이트가 자동으로 갱신됩니다. CLI로 배포할 때는 이 폴더에서 `vercel deploy --prod`를 사용합니다. Windows PowerShell 실행 정책으로 스크립트가 차단되면 `vercel.cmd deploy --prod`를 사용하세요.
+
+`.vercelignore`와 `.gitignore`로 `.env*`, 인증 파일, 개인 재고 백업, 로컬 Vercel 메타데이터를 제외합니다. `YOUTUBE_API_KEY`는 Vercel Production 환경의 Secret으로 관리하며 값을 코드에 복사하지 않습니다.
 
 외부 사진의 저작권과 라이선스는 각 출처에 따릅니다.
