@@ -1,0 +1,19 @@
+# Credentials must never be committed, even for a browser-only app.
+.env
+.env.*
+*.env
+*.key
+*.pem
+client_secret*.json
+credentials*.json
+
+# Personal inventory exports and local workspace files.
+냉장고-백업-*.json
+backups/
+*.log
+*.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+__pycache__/
